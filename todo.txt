@@ -1,0 +1,4 @@
+1. Fix brand name feature abstraction (either fully in the query, or not at all)
+2. Run everything again and push
+3. misspelled word function (currently in line)
+4. 
