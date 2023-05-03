@@ -2,3 +2,9 @@
 2. Run everything again and push
 3. misspelled word function (currently in line)
 4. Replace/remove stremmer
+
+
+
+
+-----------
+part 2: implement synonyms and simularity
