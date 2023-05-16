@@ -293,14 +293,14 @@ class Week6:
         y = result.to_frame()
         
         all_without_brands["brand_name_query"] = ""
-        all_with_brands['brand_in_query'] = y[0].map(lambda x: x[0])
+        all_with_brands['brand_length_in_query'] = y[0].map(lambda x: x[0])
         all_with_brands['brand_name_size'] = y[0].map(lambda x: x[1])
         all_with_brands['brand_name_query'] = y[0].map(lambda x: x[2])
-        df_all = pd.merge(all_with_brands, all_without_brands, how='outer', on=['id','product_uid','search_term','relevance','product_title','value',"brand_name_query"])
+        df_all = pd.merge(all_with_brands, all_without_brands, how='outer', on=['id','product_uid','search_term','relevance','value','product_title',"brand_name_query"])
         df_all = df_all.fillna(0)
 
         # Stores the features as filtered_brand_name.csv
-        pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_in_query": df_all['brand_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query']}).to_csv('filtered_brand_name.csv', index=False)
+        pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_length_in_query": df_all['brand_length_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query'],"brand_name_in_query":df_all['value']}).to_csv('filtered_brand_name.csv', index=False)
 
     def generate_title_desc_query_match(self):
         """
@@ -319,11 +319,16 @@ class Week6:
         nlp.tokenizer = Tokenizer(nlp.vocab, token_match=re.compile(r'\S+').match)
         stemmer = SnowballStemmer('english')
         
-        filtered_brand_name = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1")
-        df_brand = filtered_brand_name[(filtered_brand_name['brand_in_query'] == filtered_brand_name['brand_name_size']) & (filtered_brand_name['brand_name_size'] > 0)]
+        filtered_brand_name = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
+        df_query_with_brands = filtered_brand_name[(filtered_brand_name['brand_length_in_query'] == filtered_brand_name['brand_name_size']) & (filtered_brand_name['brand_name_size'] > 0 )]
+        df_query_with_brands = df_query_with_brands.loc[df_query_with_brands['brand_name_query'] != ""]
+        print(df_query_with_brands)
+
+        # still need to check if positions of words is correct.
+        exit()
         df_train = pd.read_csv(
-            './data/train.csv', encoding="ISO-8859-1")#,nrows= 100)
-        df_pro_desc = pd.read_csv('./data/product_descriptions.csv')
+            './data/train.csv', encoding="ISO-8859-1")
+        df_pro_desc = pd.read_csv('./data/product_descriptions.csv', encoding="ISO-8859-1")
 
         def found_common_words(searchTerm, title, description, nlp, stemmer):
             # Count number of Syntactic dependency in title or description
@@ -522,10 +527,10 @@ class Week6:
 
         df_all = df_train
         df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
-        df_all_w_brand = pd.merge(df_brand, df_all, how='left', on=['id'])
+        df_all_w_brand = pd.merge(df_query_with_brands, df_all, how='left', on=['id'])
         # print(df_all_w_brand['brand_name_query'])
         print(df_all_w_brand.columns)
-        print(df_all_w_brand['brand_name_query'])
+        print(df_all_w_brand['brand_length_in_query'])
         print(df_all_w_brand['search_term'])
         print(df_all_w_brand['brand_in_query'])
         print(df_all_w_brand['id'])
@@ -554,10 +559,7 @@ class Week6:
                     print(cpy)
                     exit()
                     return query
-                # print(indices[-1])
-                # print(indices[0])
-                # print(indices)
-                # exit()           
+                     
             return ' '.join([term for term in query.lower().split() if term not in words])
         
         df_all_w_brand['search_term'] = df_all_w_brand.apply(lambda row: removeBrand(row['search_term'], row['brand_name_query']),axis=1)
@@ -1055,4 +1057,4 @@ class Week7:
 # print("Generating title/desc query match feature")
 # Week6().generate_title_desc_query_match()
 # print("Generating attribute query match feature")
-Week6().generate_brand_matching_feature()
+Week6().generate_title_desc_query_match()
