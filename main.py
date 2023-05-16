@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+import math
 
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error
@@ -222,37 +223,33 @@ class Week6:
         print(mean_squared_error(y_test, y_pred, squared=False))
 
     def generate_brand_matching_feature(self):
+        # id 3453 contains only part of the title.
         """
         The follow features are implemented:
         1. Count number of brand name words matching with the query
         """
-        df_filtered_data = pd.read_csv('./filtered_train.csv',encoding="ISO-8859-1")
+        # df_filtered_data = pd.read_csv('./filtered_data/filtered_train.csv',encoding="ISO-8859-1")
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")
-        df_att = pd.read_csv('./data/attributes.csv')
+        df_att = pd.read_csv('./data/attributes.csv', encoding="ISO-8859-1")
         
-        stemmer = SnowballStemmer('english')
+        # product 100109 does not have attribute date
+        df_att = df_att.loc[df_att['name'] == 'MFG Brand Name']
+        all_id_df = pd.merge(df_train, df_att, how='left', on='product_uid')
 
-        
-        all_id_df = pd.merge(df_train.drop_duplicates(
-            subset=['product_uid']), df_att, how='left', on='product_uid')
+        all_without_brands = all_id_df.loc[all_id_df['name'] != 'MFG Brand Name'] # not all products have a brand name defined
 
-        test = all_id_df.groupby(['product_uid'])
+        all_with_brands = all_id_df.loc[all_id_df['name'] == 'MFG Brand Name']
 
-        # df_brand_names contain
-        df_brand_names = pd.DataFrame()
-        for product in test:
-            row_to_append = pd.DataFrame([{'product_uid': product[0], 'brand_name': " ".join(product[1].loc[product[1]['name'] == 'MFG Brand Name'].loc[:,'value'].to_numpy(dtype=str))}])
-            df_brand_names = pd.concat([df_brand_names, row_to_append])
-        
-        merged = pd.merge(df_train, df_brand_names, how='left', on='product_uid')
-        merged = merged.drop(
-            ['product_uid', 'id','relevance'], axis=1)
-              
+        all_without_brands = all_without_brands.drop(['name'], axis=1)
+        all_without_brands = all_without_brands.fillna("")
 
-        def found_common_words(query, brand_name, stemmer):
-            if (brand_name == "Unbranded"): #unbranded product
-                # id - 101069
+        all_with_brands = all_with_brands.drop(['name'], axis=1)
+
+        def found_common_words(query, brand_name):
+            # print("query", query , "brand_name", brand_name)
+            if (brand_name == "Unbranded" or isinstance(brand_name, float)): #unbranded product
+                # id - 101069 = unbranded, 100329 = nan
                 return 0,0, ''
 
             brandNameInQuery = 0 # brand word matching counter
@@ -292,15 +289,18 @@ class Week6:
             
             return brandNameInQuery,sizeBrandName, " ".join([word for word in brandNameQuery])
         
-        result = merged.apply(lambda row:found_common_words(row['search_term'],row['brand_name'], stemmer),axis=1)
+        result = all_with_brands.apply(lambda row:found_common_words(row['search_term'],row['value']),axis=1)
         y = result.to_frame()
-
-        df_filtered_data['brand_in_query'] = y[0].map(lambda x: x[0])
-        df_filtered_data['brand_name_size'] = y[0].map(lambda x: x[1])
-        df_filtered_data['brand_name_query'] = y[0].map(lambda x: x[2])
         
+        all_without_brands["brand_name_query"] = ""
+        all_with_brands['brand_in_query'] = y[0].map(lambda x: x[0])
+        all_with_brands['brand_name_size'] = y[0].map(lambda x: x[1])
+        all_with_brands['brand_name_query'] = y[0].map(lambda x: x[2])
+        df_all = pd.merge(all_with_brands, all_without_brands, how='outer', on=['id','product_uid','search_term','relevance','product_title','value',"brand_name_query"])
+        df_all = df_all.fillna(0)
+
         # Stores the features as filtered_brand_name.csv
-        pd.DataFrame({"id": df_filtered_data['id'], "product_uid": df_filtered_data['product_uid'], "brand_in_query": df_filtered_data['brand_in_query'],"brand_name_size":df_filtered_data['brand_name_size'],"brand_name_query":df_filtered_data['brand_name_query']}).to_csv('filtered_brand_name.csv', index=False)
+        pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_in_query": df_all['brand_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query']}).to_csv('filtered_brand_name.csv', index=False)
 
     def generate_title_desc_query_match(self):
         """
@@ -319,7 +319,7 @@ class Week6:
         nlp.tokenizer = Tokenizer(nlp.vocab, token_match=re.compile(r'\S+').match)
         stemmer = SnowballStemmer('english')
         
-        filtered_brand_name = pd.read_csv('./filtered_brand_name.csv',encoding="ISO-8859-1")
+        filtered_brand_name = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1")
         df_brand = filtered_brand_name[(filtered_brand_name['brand_in_query'] == filtered_brand_name['brand_name_size']) & (filtered_brand_name['brand_name_size'] > 0)]
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")#,nrows= 100)
@@ -522,15 +522,47 @@ class Week6:
 
         df_all = df_train
         df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
-        df_all_w_brand = pd.merge(df_brand, df_all, how='left', on=['id','product_uid'])
+        df_all_w_brand = pd.merge(df_brand, df_all, how='left', on=['id'])
+        # print(df_all_w_brand['brand_name_query'])
+        print(df_all_w_brand.columns)
+        print(df_all_w_brand['brand_name_query'])
+        print(df_all_w_brand['search_term'])
+        print(df_all_w_brand['brand_in_query'])
+        print(df_all_w_brand['id'])
+        # print(df_all_w_brand.loc[('brand_name_query')])
+        # print(type(df_all_w_brand))
+        exit()
         df_all = df_all[~df_all.id.isin(df_all_w_brand.id)]
 
         def removeBrand(query, brand_name):
             words = brand_name.lower().split()
+            if len(words) > 1:
+                indices = []
+                q = query.split()
+                print(query)
+                print(brand_name)
+                for word_part in words:
+                    indices.append(q.index(word_part))
+                cpy = indices.copy()
+                indices.sort()
+                if (len(indices)-1 != (indices[-1] - indices[0])) or indices != cpy:
+                    print("not correct position brand")
+                    print((len(indices) != (indices[-1] - indices[0])))
+                    print(indices != cpy)
+
+                    print(indices)
+                    print(cpy)
+                    exit()
+                    return query
+                # print(indices[-1])
+                # print(indices[0])
+                # print(indices)
+                # exit()           
             return ' '.join([term for term in query.lower().split() if term not in words])
         
         df_all_w_brand['search_term'] = df_all_w_brand.apply(lambda row: removeBrand(row['search_term'], row['brand_name_query']),axis=1)
         print(df_all_w_brand)
+        exit()
         # Brand names are now removed from the query
         df_brand_names = pd.concat([df_all, df_all_w_brand], axis=0)
         
@@ -1016,26 +1048,11 @@ class Week7:
         X_test = X_test.drop(['id', 'relevance'], axis=1).values
 
         return X_train, y_train, X_test, y_test
-    
-    
-# Week5().dataExploration()
+
 
 # print("Generating brand name feature")
 # Week6().generate_brand_matching_feature()
 # print("Generating title/desc query match feature")
 # Week6().generate_title_desc_query_match()
 # print("Generating attribute query match feature")
-Week6().generate_attribute_query_match()
-
-# Week6().execute_model3()
-# Week6().execute_model2()
-
-# Week6().evaluation_final()  
-
-# Week6().evaluation_RSME()
-
-
-
-# Week7().hyperparameter_optimization()
-# Week6().generate_title_desc_query_match()
- 
+Week6().generate_brand_matching_feature()
