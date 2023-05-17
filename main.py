@@ -224,6 +224,8 @@ class Week6:
 
     def generate_brand_matching_feature(self):
         # id 3453 contains only part of the title.
+        # Extra column for whether a brand name exists.
+        # Extra column that will tell if the positions of the brand name terms are correct.
         """
         The follow features are implemented:
         1. Count number of brand name words matching with the query
@@ -571,9 +573,8 @@ class Week6:
         print(df_all_w_brand['id'][10])
         
         df_brand_names = df_brand_names.sort_values(by=['id'])
-        df_brand_names = df_brand_names.drop(['brand_length_in_query','brand_name_in_query', 'brand_name_size','brand_name_query'], axis=1)
-        print(df_brand_names)
-        print(df_)
+        df_brand_names = df_brand_names.drop(['brand_length_in_query','brand_name_in_attr', 'brand_name_size','brand_name_query'], axis=1)
+
         df_brand_names['product_info'] = df_brand_names['search_term']+"\t" + \
             df_brand_names['product_title']+"\t"+df_brand_names['product_description']\
              
@@ -599,7 +600,7 @@ class Week6:
 
         # store the featuers in 'filtered_train.csv'
         pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'], "query_root_in_title": df_brand_names['query_root_in_title'],
-                     "query_ro  ot_in_desc": df_brand_names['query_root_in_desc'], "query_compound_in_title": df_brand_names["query_compound_in_title"], "query_compound_in_desc": df_brand_names["query_compound_in_desc"], "query_other_in_title": df_brand_names["query_other_in_title"], "query_other_in_desc": df_brand_names["query_other_in_desc"], "total_query_root": df_brand_names["total_query_compound"],"total_query_compound": df_brand_names["total_query_root"],"total_query_other": df_brand_names["total_query_other"],"query_root_also_root_in_title": df_brand_names["query_root_also_root_in_title"],"query_compound_also_compound_in_title": df_brand_names["query_compound_also_compound_in_title"],}).to_csv('filtered_train.csv', index=False)
+                     "query_root_in_desc": df_brand_names['query_root_in_desc'], "query_compound_in_title": df_brand_names["query_compound_in_title"], "query_compound_in_desc": df_brand_names["query_compound_in_desc"], "query_other_in_title": df_brand_names["query_other_in_title"], "query_other_in_desc": df_brand_names["query_other_in_desc"], "total_query_root": df_brand_names["total_query_compound"],"total_query_compound": df_brand_names["total_query_root"],"total_query_other": df_brand_names["total_query_other"],"query_root_also_root_in_title": df_brand_names["query_root_also_root_in_title"],"query_compound_also_compound_in_title": df_brand_names["query_compound_also_compound_in_title"],}).to_csv('filtered_train.csv', index=False)
         
     def generate_attribute_query_match(self):
         """
@@ -1060,4 +1061,4 @@ class Week7:
 # print("Generating title/desc query match feature")
 # Week6().generate_title_desc_query_match()
 # print("Generating attribute query match feature")
-Week6().generate_brand_matching_feature()
+Week6().generate_title_desc_query_match()
