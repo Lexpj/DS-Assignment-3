@@ -522,26 +522,13 @@ class Week6:
                 global start
                 print("Elapsed ", time.time() - start)
             
-            return queryRootInTitle, queryRootInDesc, queryCompoundInTitle, queryCompoundInDesc, queryOtherInTitle, queryOtherInDesc, totalQueryRoot, totalQueryCompound, totalQueryOther, queryRootAlsoTitleRoot, queryRootAlsoDescRoot
+            return queryRootInTitle, queryRootInDesc, queryCompoundInTitle, queryCompoundInDesc, queryOtherInTitle, queryOtherInDesc, totalQueryRoot, totalQueryCompound, totalQueryOther, queryRootAlsoTitleRoot, queryRootAlsoDescRoot, missingQueryWords
 
         df_all = df_train
         df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
         df_all_w_brand = pd.merge(df_query_with_brands, df_all, how='left', on=['id','product_uid'])
-        # print(df_all_w_brand['brand_name_query'])
-        # print(df_all_w_brand.columns)
-        # print(df_all_w_brand['brand_length_in_query'])
-        # print(df_all_w_brand['search_term'])
-        # print(df_all_w_brand['brand_name_in_query'])
-        # print(df_all_w_brand['id'])
-        # print(df_all_w_brand.loc[('brand_name_query')])
-        # print(type(df_all_w_brand))
-        
-        df_all = df_all[~df_all.id.isin(df_all_w_brand.id)]
-        print()
-        print()
-        print(df_all_w_brand)
-        print(df_all)
 
+        df_all = df_all[~df_all.id.isin(df_all_w_brand.id)]
 
         def removeBrand(query, brand_name):
             words = brand_name.lower().split()
@@ -597,9 +584,11 @@ class Week6:
             lambda x: x[9])
         df_brand_names['query_compound_also_compound_in_title'] = y['product_info'].map(
             lambda x: x[10])
+        df_brand_names['missing_query_terms'] = y['product_info'].map(
+            lambda x: x[11])
 
         # store the featuers in 'filtered_train.csv'
-        pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'], "query_root_in_title": df_brand_names['query_root_in_title'],
+        pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'],"missing_query_terms": df_brand_names['missing_query_terms'], "query_root_in_title": df_brand_names['query_root_in_title'],
                      "query_root_in_desc": df_brand_names['query_root_in_desc'], "query_compound_in_title": df_brand_names["query_compound_in_title"], "query_compound_in_desc": df_brand_names["query_compound_in_desc"], "query_other_in_title": df_brand_names["query_other_in_title"], "query_other_in_desc": df_brand_names["query_other_in_desc"], "total_query_root": df_brand_names["total_query_compound"],"total_query_compound": df_brand_names["total_query_root"],"total_query_other": df_brand_names["total_query_other"],"query_root_also_root_in_title": df_brand_names["query_root_also_root_in_title"],"query_compound_also_compound_in_title": df_brand_names["query_compound_also_compound_in_title"],}).to_csv('filtered_train.csv', index=False)
         
     def generate_attribute_query_match(self):
