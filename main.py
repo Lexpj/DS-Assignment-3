@@ -300,7 +300,7 @@ class Week6:
         df_all = df_all.fillna(0)
 
         # Stores the features as filtered_brand_name.csv
-        pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_length_in_query": df_all['brand_length_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query'],"brand_name_in_query":df_all['value']}).to_csv('filtered_brand_name.csv', index=False)
+        pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_length_in_query": df_all['brand_length_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query'],"brand_name_in_attr":df_all['value']}).to_csv('filtered_brand_name.csv', index=False)
 
     def generate_title_desc_query_match(self):
         """
@@ -322,10 +322,7 @@ class Week6:
         filtered_brand_name = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
         df_query_with_brands = filtered_brand_name[(filtered_brand_name['brand_length_in_query'] == filtered_brand_name['brand_name_size']) & (filtered_brand_name['brand_name_size'] > 0 )]
         df_query_with_brands = df_query_with_brands.loc[df_query_with_brands['brand_name_query'] != ""]
-        print(df_query_with_brands)
 
-        # still need to check if positions of words is correct.
-        exit()
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")
         df_pro_desc = pd.read_csv('./data/product_descriptions.csv', encoding="ISO-8859-1")
@@ -527,17 +524,22 @@ class Week6:
 
         df_all = df_train
         df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
-        df_all_w_brand = pd.merge(df_query_with_brands, df_all, how='left', on=['id'])
+        df_all_w_brand = pd.merge(df_query_with_brands, df_all, how='left', on=['id','product_uid'])
         # print(df_all_w_brand['brand_name_query'])
-        print(df_all_w_brand.columns)
-        print(df_all_w_brand['brand_length_in_query'])
-        print(df_all_w_brand['search_term'])
-        print(df_all_w_brand['brand_in_query'])
-        print(df_all_w_brand['id'])
+        # print(df_all_w_brand.columns)
+        # print(df_all_w_brand['brand_length_in_query'])
+        # print(df_all_w_brand['search_term'])
+        # print(df_all_w_brand['brand_name_in_query'])
+        # print(df_all_w_brand['id'])
         # print(df_all_w_brand.loc[('brand_name_query')])
         # print(type(df_all_w_brand))
-        exit()
+        
         df_all = df_all[~df_all.id.isin(df_all_w_brand.id)]
+        print()
+        print()
+        print(df_all_w_brand)
+        print(df_all)
+
 
         def removeBrand(query, brand_name):
             words = brand_name.lower().split()
@@ -547,7 +549,7 @@ class Week6:
                 print(query)
                 print(brand_name)
                 for word_part in words:
-                    indices.append(q.index(word_part))
+                    indices.append(words.index(word_part))
                 cpy = indices.copy()
                 indices.sort()
                 if (len(indices)-1 != (indices[-1] - indices[0])) or indices != cpy:
@@ -557,20 +559,21 @@ class Week6:
 
                     print(indices)
                     print(cpy)
-                    exit()
+                    # exit()
+                    print()
                     return query
                      
             return ' '.join([term for term in query.lower().split() if term not in words])
         
         df_all_w_brand['search_term'] = df_all_w_brand.apply(lambda row: removeBrand(row['search_term'], row['brand_name_query']),axis=1)
-        print(df_all_w_brand)
-        exit()
         # Brand names are now removed from the query
         df_brand_names = pd.concat([df_all, df_all_w_brand], axis=0)
+        print(df_all_w_brand['id'][10])
         
         df_brand_names = df_brand_names.sort_values(by=['id'])
-        df_brand_names = df_brand_names.drop(['brand_in_query', 'brand_name_size','brand_name_query'], axis=1)
+        df_brand_names = df_brand_names.drop(['brand_length_in_query','brand_name_in_query', 'brand_name_size','brand_name_query'], axis=1)
         print(df_brand_names)
+        print(df_)
         df_brand_names['product_info'] = df_brand_names['search_term']+"\t" + \
             df_brand_names['product_title']+"\t"+df_brand_names['product_description']\
              
@@ -1057,4 +1060,4 @@ class Week7:
 # print("Generating title/desc query match feature")
 # Week6().generate_title_desc_query_match()
 # print("Generating attribute query match feature")
-Week6().generate_title_desc_query_match()
+Week6().generate_brand_matching_feature()
