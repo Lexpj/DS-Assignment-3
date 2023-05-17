@@ -1,4 +1,4 @@
-id,product_uid,brand_length_in_query,brand_name_size,brand_name_query,brand_name_in_query
+id,product_uid,brand_length_in_query,brand_name_size,brand_name_query,brand_name_in_attr
 2,100001,0.0,2.0,,Simpson Strong-Tie
 3,100001,0.0,2.0,,Simpson Strong-Tie
 9,100002,0.0,4.0,,BEHR Premium Textured DeckOver
