@@ -304,14 +304,12 @@ class Week6:
         # Stores the features as filtered_brand_name.csv
         pd.DataFrame({"id": df_all['id'], "product_uid": df_all['product_uid'], "brand_length_in_query": df_all['brand_length_in_query'],"brand_name_size":df_all['brand_name_size'],"brand_name_query":df_all['brand_name_query'],"brand_name_in_attr":df_all['value']}).to_csv('filtered_brand_name.csv', index=False)
 
-    def generate_title_desc_query_match(self):
+
+    def generate_title_query_match(self):
         """
         The follow features are generated:
         1. Count length of query
         2. count words that is in the title of the product.
-        --- count number of root in query
-        --- count number of compounds in query
-        3. count words that is in the description of the product.
         --- count number of root in query
         --- count number of compounds in query
         """
@@ -332,25 +330,19 @@ class Week6:
         def found_common_words(searchTerm, title, description, nlp, stemmer):
             # Count number of Syntactic dependency in title or description
             queryRootInTitle = 0
-            queryRootInDesc = 0
             queryCompoundInTitle = 0
-            queryCompoundInDesc = 0
             queryOtherInTitle = 0
-            queryOtherInDesc = 0
             totalQueryRoot = 0
             totalQueryCompound = 0
             totalQueryOther = 0
             rootTermsTitle = []
             compoundTermsTitle = []
             otherTermsTitle = []
-            rootTermsDesc = []
-            compoundTermsDesc = []
-            otherTermsDesc = []
+
 
             # Counts whether the root of the query is also the root in the title/description.
             # Term in query can be root, but does not have to be root in Title/description
             queryRootAlsoTitleRoot = 0
-            queryRootAlsoDescRoot = 0
 
             # remove ? and $ from query
             query = searchTerm.replace("?","")
@@ -427,52 +419,6 @@ class Week6:
 
             # We still have words which we have not found
             if (len(missingQueryWords) > 0):
-                # Check if stremmed is in description
-                depDesc = []
-
-                for token in nlp(description):
-                    depDesc.append(token.dep_)
-
-                # list that contained all missing query words stremmed
-                queryStremmed = [stemmer.stem(word)
-                                 for word in missingQueryWords]
-
-                # list that containes all title words stremmed
-                descStremmed = [stemmer.stem(word)
-                                for word in description.lower().split()]
-
-                # find query terms in description
-                for index, queryWord in enumerate(queryStremmed):
-                    # Query word is in description
-                    for index2, descWord in enumerate(descStremmed):
-                        if queryWord == descWord:
-                            # check dependency of word for the query
-                            dep = depQuery[index]
-                            if (dep == 'ROOT'):
-                                queryRootInDesc += 1
-                                rootTermsDesc.append(missingQueryWords[index])
-                                if (depDesc[index2] == dep):
-                                    queryRootAlsoDescRoot += 1
-                            elif (dep == 'compound'):
-                                compoundTermsDesc.append(
-                                    missingQueryWords[index])
-                                queryCompoundInDesc += 1
-                            else:
-                                otherTermsDesc.append(missingQueryWords[index])
-                                queryOtherInDesc += 1
-
-                            # remove word from the query
-                            tempIndices.append(index)
-                            break
-                tempIndices.reverse()
-                for i in tempIndices:
-                    del depQuery[i]
-                    del missingQueryWords[i]
-
-                tempIndices = []
-
-            # We still have words which we have not found
-            if (len(missingQueryWords) > 0):
                 # Check if misspelled is in title
                 for index, queryWord in enumerate(missingQueryWords.copy()):
                     for index2, titleWord in enumerate(title.lower().split()):
@@ -522,7 +468,240 @@ class Week6:
                 global start
                 print("Elapsed ", time.time() - start)
             
-            return queryRootInTitle, queryRootInDesc, queryCompoundInTitle, queryCompoundInDesc, queryOtherInTitle, queryOtherInDesc, totalQueryRoot, totalQueryCompound, totalQueryOther, queryRootAlsoTitleRoot, queryRootAlsoDescRoot, missingQueryWords
+            return queryRootInTitle, queryCompoundInTitle, queryOtherInTitle, totalQueryRoot, totalQueryCompound, totalQueryOther, queryRootAlsoTitleRoot, missingQueryWords
+
+        df_all = df_train
+        df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
+        df_all_w_brand = pd.merge(df_query_with_brands, df_all, how='left', on=['id','product_uid'])
+
+        df_all = df_all[~df_all.id.isin(df_all_w_brand.id)]
+
+        def removeBrand(query, brand_name):
+            words = brand_name.lower().split()
+            if len(words) > 1:
+                indices = []
+                q = query.split()
+                print(query)
+                print(brand_name)
+                for word_part in words:
+                    indices.append(words.index(word_part))
+                cpy = indices.copy()
+                indices.sort()
+                if (len(indices)-1 != (indices[-1] - indices[0])) or indices != cpy:
+                    print("not correct position brand")
+                    print((len(indices) != (indices[-1] - indices[0])))
+                    print(indices != cpy)
+
+                    print(indices)
+                    print(cpy)
+                    # exit()
+                    print()
+                    return query
+                     
+            return ' '.join([term for term in query.lower().split() if term not in words])
+        
+        df_all_w_brand['search_term'] = df_all_w_brand.apply(lambda row: removeBrand(row['search_term'], row['brand_name_query']),axis=1)
+        # Brand names are now removed from the query
+        df_brand_names = pd.concat([df_all, df_all_w_brand], axis=0)
+        print(df_all_w_brand['id'][10])
+        
+        df_brand_names = df_brand_names.sort_values(by=['id'])
+        df_brand_names = df_brand_names.drop(['brand_length_in_query','brand_name_in_attr', 'brand_name_size','brand_name_query'], axis=1)
+
+        df_brand_names['product_info'] = df_brand_names['search_term']+"\t" + \
+            df_brand_names['product_title']+"\t"+df_brand_names['product_description']\
+             
+        x = df_brand_names['product_info'].map(lambda x: found_common_words(
+            x.split('\t')[0], x.split('\t')[1], x.split('\t')[2], nlp, stemmer))
+        y = x.to_frame()
+
+        # Add all the features.
+        df_brand_names['query_root_in_title'] = y['product_info'].map(lambda x: x[0])
+        df_brand_names['query_compound_in_title'] = y['product_info'].map(
+            lambda x: x[1])
+        df_brand_names['query_other_in_title'] = y['product_info'].map(lambda x: x[2])
+        df_brand_names['total_query_root'] = y['product_info'].map(lambda x: x[3])
+        df_brand_names['total_query_compound'] = y['product_info'].map(lambda x: x[4])
+        df_brand_names['total_query_other'] = y['product_info'].map(lambda x: x[5])
+        df_brand_names['query_root_also_root_in_title'] = y['product_info'].map(
+            lambda x: x[6])
+        df_brand_names['missing_query_terms'] = y['product_info'].map(
+            lambda x: x[7])
+
+        # store the featuers in 'filtered_train.csv'
+        pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'],"missing_query_terms": df_brand_names['missing_query_terms'], "query_root_in_title": df_brand_names['query_root_in_title'],
+        "query_compound_in_title": df_brand_names["query_compound_in_title"], "query_other_in_title": df_brand_names["query_other_in_title"], "total_query_root": df_brand_names["total_query_root"],
+        "total_query_compound": df_brand_names["total_query_compound"],"total_query_other": df_brand_names["total_query_other"],"query_root_also_root_in_title": df_brand_names["query_root_also_root_in_title"]}).to_csv('filtered_train_title.csv', index=False)
+      
+
+    def generate_desc_query_match(self):
+        """
+        The follow features are generated:
+        1. Count length of query
+        2. count words that is in the description of the product.
+        --- count number of root in query
+        --- count number of compounds in query
+        """
+        
+        nlp = spacy.load("en_core_web_lg")
+        # Tokenize only on spaces.
+        nlp.tokenizer = Tokenizer(nlp.vocab, token_match=re.compile(r'\S+').match)
+        stemmer = SnowballStemmer('english')
+        
+        filtered_brand_name = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
+        df_query_with_brands = filtered_brand_name[(filtered_brand_name['brand_length_in_query'] == filtered_brand_name['brand_name_size']) & (filtered_brand_name['brand_name_size'] > 0 )]
+        df_query_with_brands = df_query_with_brands.loc[df_query_with_brands['brand_name_query'] != ""]
+
+        df_train = pd.read_csv(
+            './data/train.csv', encoding="ISO-8859-1")
+        df_pro_desc = pd.read_csv('./data/product_descriptions.csv', encoding="ISO-8859-1")
+
+        def found_common_words(searchTerm, title, description, nlp, stemmer):
+            # Count number of Syntactic dependency in title or description
+            queryRootInDesc = 0
+            queryCompoundInDesc = 0
+            queryOtherInDesc = 0
+            totalQueryRoot = 0
+            totalQueryCompound = 0
+            totalQueryOther = 0
+            rootTermsDesc = []
+            compoundTermsDesc = []
+            otherTermsDesc = []
+
+            # Counts whether the root of the query is also the root in the title/description.
+            # Term in query can be root, but does not have to be root in Title/description
+            queryRootAlsoDescRoot = 0
+
+            # remove ? and $ from query
+            query = searchTerm.replace("?","")
+            query = query.replace("$","")
+            query = query.strip()
+
+
+            # Syntactic dependency, i.e. the relation between tokens for each term in query
+            depQuery = []
+
+            for token in nlp(query):
+                tokenDep = token.dep_
+                if (tokenDep == 'ROOT'):
+                    totalQueryRoot += 1
+                elif (tokenDep == 'compound'):
+                    totalQueryCompound += 1
+                else:
+                    totalQueryOther += 1
+                depQuery.append(tokenDep)
+                
+            depDesc = []
+
+            for token in nlp(description):
+                depDesc.append(token.dep_)
+
+            # List which will hold all unfound query terms
+            missingQueryWords = query.lower().split()
+
+            # list that containes all query words stremmed
+            queryStremmed = [stemmer.stem(word)
+                             for word in query.lower().split()]
+
+            # list that containes all title words stremmed
+            titleStremmed = [stemmer.stem(word)
+                             for word in title.lower().split()]
+
+            # list used to store to be removed indices (these are found)
+            tempIndices = []
+
+            if (len(missingQueryWords) > 0):
+                # Check if stremmed is in description
+                # list that contained all missing query words stremmed
+                queryStremmed = [stemmer.stem(word)
+                                 for word in missingQueryWords]
+
+                # list that containes all title words stremmed
+                descStremmed = [stemmer.stem(word)
+                                for word in description.lower().split()]
+
+                # find query terms in description
+                for index, queryWord in enumerate(queryStremmed):
+                    # Query word is in description
+                    for index2, descWord in enumerate(descStremmed):
+                        if queryWord == descWord:
+                            # check dependency of word for the query
+                            dep = depQuery[index]
+                            if (dep == 'ROOT'):
+                                queryRootInDesc += 1
+                                rootTermsDesc.append(missingQueryWords[index])
+                                if (depDesc[index2] == dep):
+                                    queryRootAlsoDescRoot += 1
+                            elif (dep == 'compound'):
+                                compoundTermsDesc.append(
+                                    missingQueryWords[index])
+                                queryCompoundInDesc += 1
+                            else:
+                                otherTermsDesc.append(missingQueryWords[index])
+                                queryOtherInDesc += 1
+
+                            # remove word from the query
+                            tempIndices.append(index)
+                            break
+                tempIndices.reverse()
+                for i in tempIndices:
+                    del depQuery[i]
+                    del missingQueryWords[i]
+
+                tempIndices = []
+
+            # We still have words which we have not found
+            if (len(missingQueryWords) > 0):
+                # Check if misspelled is in title
+                for index, queryWord in enumerate(missingQueryWords.copy()):
+                    for index2, descWord in enumerate(descStremmed):
+                        # check if first two letters are equal
+                        if (queryWord[:2] == descWord[:2]):
+                            # count percentage of letters in the word.
+                            count = 0
+                            for char in queryWord:
+                                if char in descWord:
+                                    count += 1
+                            # should atleast containt 75% of the letters of the query word.
+                            if ((count/len(queryWord)) > 0.75):
+                                # print("more than 75 percent")
+                                # Check that found title word is not twice as long 
+                                if ((len(queryWord)*2) > len(descWord)):
+                                    # check dependency of word for the query
+                                    dep = depQuery[index]
+                                    if (dep == 'ROOT'):
+                                        queryRootInDesc += 1
+                                        rootTermsDesc.append(
+                                            missingQueryWords[index])
+                                        if (depDesc[index2] == dep):
+                                            queryRootAlsoDescRoot += 1
+                                    elif (dep == 'compound'):
+                                        compoundTermsDesc.append(
+                                            missingQueryWords[index])
+                                        queryCompoundInDesc += 1
+                                    else:
+                                        otherTermsDesc.append(
+                                            missingQueryWords[index])
+                                        queryOtherInDesc += 1
+                                    # remove word from the query
+                                    tempIndices.append(index)
+                                    break
+                
+                tempIndices.reverse()
+                for i in tempIndices:
+                    del depQuery[i]
+                    del missingQueryWords[i]
+
+                tempIndices = []
+            # Run time is around 25 minutes for 75k enteries
+            global globalCount
+            globalCount += 1
+            if ((globalCount % 1000) == 0):
+                print("globalCount", globalCount)
+                global start
+                print("Elapsed ", time.time() - start)
+            
+            return queryRootInDesc, queryCompoundInDesc, queryOtherInDesc, totalQueryRoot, totalQueryCompound, totalQueryOther, queryRootAlsoDescRoot, missingQueryWords
 
         df_all = df_train
         df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
@@ -569,27 +748,23 @@ class Week6:
             x.split('\t')[0], x.split('\t')[1], x.split('\t')[2], nlp, stemmer))
         y = x.to_frame()
         # Add all the features.
-        df_brand_names['query_root_in_title'] = y['product_info'].map(lambda x: x[0])
-        df_brand_names['query_root_in_desc'] = y['product_info'].map(lambda x: x[1])
-        df_brand_names['query_compound_in_title'] = y['product_info'].map(
-            lambda x: x[2])
+        df_brand_names['query_root_in_desc'] = y['product_info'].map(lambda x: x[0])
         df_brand_names['query_compound_in_desc'] = y['product_info'].map(
-            lambda x: x[3])
-        df_brand_names['query_other_in_title'] = y['product_info'].map(lambda x: x[4])
-        df_brand_names['query_other_in_desc'] = y['product_info'].map(lambda x: x[5])
-        df_brand_names['total_query_root'] = y['product_info'].map(lambda x: x[6])
-        df_brand_names['total_query_compound'] = y['product_info'].map(lambda x: x[7])
-        df_brand_names['total_query_other'] = y['product_info'].map(lambda x: x[8])
-        df_brand_names['query_root_also_root_in_title'] = y['product_info'].map(
-            lambda x: x[9])
-        df_brand_names['query_compound_also_compound_in_title'] = y['product_info'].map(
-            lambda x: x[10])
+            lambda x: x[1])
+        df_brand_names['query_other_in_desc'] = y['product_info'].map(lambda x: x[2])
+        df_brand_names['total_query_root'] = y['product_info'].map(lambda x: x[3])
+        df_brand_names['total_query_compound'] = y['product_info'].map(lambda x: x[4])
+        df_brand_names['total_query_other'] = y['product_info'].map(lambda x: x[5])
+        df_brand_names['query_root_also_root_in_desc'] = y['product_info'].map(
+            lambda x: x[6])
         df_brand_names['missing_query_terms'] = y['product_info'].map(
-            lambda x: x[11])
+            lambda x: x[7])
 
         # store the featuers in 'filtered_train.csv'
-        pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'],"missing_query_terms": df_brand_names['missing_query_terms'], "query_root_in_title": df_brand_names['query_root_in_title'],
-                     "query_root_in_desc": df_brand_names['query_root_in_desc'], "query_compound_in_title": df_brand_names["query_compound_in_title"], "query_compound_in_desc": df_brand_names["query_compound_in_desc"], "query_other_in_title": df_brand_names["query_other_in_title"], "query_other_in_desc": df_brand_names["query_other_in_desc"], "total_query_root": df_brand_names["total_query_compound"],"total_query_compound": df_brand_names["total_query_root"],"total_query_other": df_brand_names["total_query_other"],"query_root_also_root_in_title": df_brand_names["query_root_also_root_in_title"],"query_compound_also_compound_in_title": df_brand_names["query_compound_also_compound_in_title"],}).to_csv('filtered_train.csv', index=False)
+        pd.DataFrame({"id": df_brand_names['id'], "product_uid": df_brand_names['product_uid'],"missing_query_terms": df_brand_names['missing_query_terms'],
+                     "query_root_in_desc": df_brand_names['query_root_in_desc'], "query_compound_in_desc": df_brand_names["query_compound_in_desc"],"query_other_in_desc": df_brand_names["query_other_in_desc"], 
+                     "total_query_root": df_brand_names["total_query_root"],"total_query_compound": df_brand_names["total_query_compound"],"total_query_other": df_brand_names["total_query_other"],
+                     "query_root_also_root_in_desc": df_brand_names["query_root_also_root_in_desc"]}).to_csv('filtered_train_desc.csv', index=False)
         
     def generate_attribute_query_match(self):
         """
@@ -1050,19 +1225,58 @@ class scanData:
         pass
 
     def analyseMissingQueryTerms(self):
+        df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
+        df_brand = df_brand[(df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )]
         df_features = pd.read_csv(
             './filtered_data/filtered_train.csv', encoding="ISO-8859-1")
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")
         
-
+        merged_brand = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
         merged = pd.merge(df_train, df_features, how='left', on=['id', 'product_uid'])
-        print(merged['relevance'])
-        no_missing_df = merged[merged['missing_query_terms'] == '[]']
-        no_missing_and_root_match_df = merged[merged['query_root_also_root_in_title'] == 1]
-        # print(no_missing_df[["relevance","id"]])
+        # print(merged['relevance'])
+
+
+        # --- brand matching feature
+        merged_brand = merged_brand.fillna(0)
+        match_brand_df = merged_brand[merged_brand['brand_name_size'] > 0] # mean 2.487238 , std 0.472758
+        no_match_brand_df = merged_brand[merged_brand['brand_name_size'] == 0] # mean 2.370361, std 0.538892
+        print(match_brand_df['relevance'].describe())
+        print(no_match_brand_df['relevance'].describe())
+
+        # --- title / desc matching features
+        query_root_found_in_title = merged[merged['query_root_in_title'] == 1] # mean 2.488126, std 0.485548
+        query_root_not_found_in_title = merged[merged['query_root_in_title'] == 0] # mean 2.211391, std 0.563021
+        # print(query_root_found_in_title['relevance'].describe())
+        # print(query_root_not_found_in_title['relevance'].describe())
+
+
+        root_match_df = merged[merged['query_root_also_root_in_title'] == 1] # mean is 2.568666, std 0.446398
+        no_root_match_df = merged[merged['query_root_also_root_in_title'] == 0] # mean is 2.334458, std 0.543831
+        # print(root_match_df['relevance'].describe()) 
+        # print(no_root_match_df['relevance'].describe()) 
+
+        query_root_found_in_desc = merged[merged['query_root_in_desc'] == 1] # mean 2.331774, std 0.539132
+        query_root_not_found_in_desc = merged[merged['query_root_in_desc'] == 0] # mean 2.385813, std 0.533342
+        # print(query_root_found_in_desc['relevance'].describe())
+        # print(query_root_not_found_in_desc['relevance'].describe())
+
+        query_compound_in_title = merged[merged['query_compound_in_title'] == 1] # mean 2.428634, std 0.512457
+        query_compound_not_in_title = merged[merged['query_compound_in_title'] == 0] # mean 2.331830, std 0.553072
+        # print(query_compound_in_title['relevance'].describe())
+        # print(query_compound_not_in_title['relevance'].describe())
+
+        query_other_in_title = merged[merged['query_other_in_title'] == 1] # mean 2.399762, std 0.527170
+        query_other_not_in_title = merged[merged['query_other_in_title'] == 0] # mean 2.360412, std 0.542903
+        print(query_other_in_title['relevance'].describe())
+        print(query_other_not_in_title['relevance'].describe())
+
+
+
+        exit()
 
         print(no_missing_and_root_match_df[no_missing_and_root_match_df['relevance'] < 1.5].head(50))
         # print(no_missing_df.loc['relevance','id'])
 
-scanData().analyseMissingQueryTerms()
+Week6().generate_desc_query_match()
+# scanData().analyseMissingQueryTerms()
