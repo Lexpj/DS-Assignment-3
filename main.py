@@ -1045,9 +1045,24 @@ class Week7:
         return X_train, y_train, X_test, y_test
 
 
-# print("Generating brand name feature")
-# Week6().generate_brand_matching_feature()
-# print("Generating title/desc query match feature")
-# Week6().generate_title_desc_query_match()
-# print("Generating attribute query match feature")
-Week6().generate_title_desc_query_match()
+class scanData:
+    def __init__(self):
+        pass
+
+    def analyseMissingQueryTerms(self):
+        df_features = pd.read_csv(
+            './filtered_data/filtered_train.csv', encoding="ISO-8859-1")
+        df_train = pd.read_csv(
+            './data/train.csv', encoding="ISO-8859-1")
+        
+
+        merged = pd.merge(df_train, df_features, how='left', on=['id', 'product_uid'])
+        print(merged['relevance'])
+        no_missing_df = merged[merged['missing_query_terms'] == '[]']
+        no_missing_and_root_match_df = merged[merged['query_root_also_root_in_title'] == 1]
+        # print(no_missing_df[["relevance","id"]])
+
+        print(no_missing_and_root_match_df[no_missing_and_root_match_df['relevance'] < 1.5].head(50))
+        # print(no_missing_df.loc['relevance','id'])
+
+scanData().analyseMissingQueryTerms()
