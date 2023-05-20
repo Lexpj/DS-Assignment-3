@@ -1324,6 +1324,8 @@ class scanData:
         """
 
         print('\n\n\n\n\n\n')
+
+        # --- Desc matching
         for feature in list(merged_desc.columns)[6:]:
             print(feature, "True")
             print(merged_desc[merged_desc[feature] == 1]['relevance'].describe())
