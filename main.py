@@ -1271,12 +1271,82 @@ class scanData:
         print(query_other_in_title['relevance'].describe())
         print(query_other_not_in_title['relevance'].describe())
 
-
-
         exit()
 
         print(no_missing_and_root_match_df[no_missing_and_root_match_df['relevance'] < 1.5].head(50))
         # print(no_missing_df.loc['relevance','id'])
 
-Week6().generate_desc_query_match()
+    def analyzingFeatures(self):
+        df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
+        df_brand = df_brand[(df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )]
+        df_features_title = pd.read_csv(
+            './filtered_data/filtered_train_title.csv', encoding="ISO-8859-1")
+        df_features_desc = pd.read_csv(
+            './filtered_data/filtered_train_desc.csv', encoding="ISO-8859-1")
+        df_train = pd.read_csv(
+            './data/train.csv', encoding="ISO-8859-1")
+
+        merged_brand = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
+        merged_title = pd.merge(df_train, df_features_title, how='left', on=['id', 'product_uid'])
+        merged_desc = pd.merge(df_train, df_features_desc, how='left', on=['id', 'product_uid'])
+
+
+        # --- brand matching feature
+        merged_brand = merged_brand.fillna(0)
+        match_brand_df = merged_brand[merged_brand['brand_name_size'] > 0] # mean 2.487238 , std 0.472758
+        no_match_brand_df = merged_brand[merged_brand['brand_name_size'] == 0] # mean 2.370361, std 0.538892
+        # print("match with brand relevance")
+        # print(match_brand_df['relevance'].describe())
+        # print("no match with brand relevance")
+        # print(no_match_brand_df['relevance'].describe())
+
+        # --- title matching
+        for feature in list(merged_title.columns)[6:]:
+            print(feature, "True")
+            print(merged_title[merged_title[feature] == 1]['relevance'].describe())
+            print()
+            print(feature, "False")
+            print(merged_title[merged_title[feature] == 0]['relevance'].describe())
+
+        """
+                                                mean            std
+        query_root_in_title [True]:             2.488044        0.485662
+        query_root_in_title [False]:            2.206507        0.562980
+
+        query_compound_in_title [True]:         2.427463        0.513000
+        query_compound_in_title [False]:        2.331662        0.553225
+
+        query_other_in_title [True]:            2.398902        0.528100
+        query_other_in_title [False]:           2.360680        0.542896
+
+        query_root_also_root_in_title[True]:    2.568459        0.446608
+        query_root_also_root_in_title[False]:   2.334098        0.543877
+        """
+
+        print('\n\n\n\n\n\n')
+        for feature in list(merged_desc.columns)[6:]:
+            print(feature, "True")
+            print(merged_desc[merged_desc[feature] == 1]['relevance'].describe())
+            print()
+            print(feature, "False")
+            print(merged_desc[merged_desc[feature] == 0]['relevance'].describe())
+
+        """
+        query_root_in_desc [True]:              2.469301        0.495534
+        query_root_in_desc [False]:             2.225250        0.563557
+
+        query_compound_in_desc [True]:          2.424696        0.514064
+        query_compound_in_desc [False]:         2.336462        0.554673
+
+        query_other_in_desc [True]:             2.395592        0.526754   
+        query_other_in_desc [False]:            2.372899        0.542705
+
+        query_root_also_root_in_desc [True]:    2.465642        0.485094
+        query_root_also_root_in_desc [False]:   2.380614        0.534472
+        """
+
+
+        
+
+scanData().analyzingFeatures()
 # scanData().analyseMissingQueryTerms()
