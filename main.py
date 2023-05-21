@@ -13,10 +13,10 @@ from sklearn.ensemble import RandomForestRegressor, BaggingRegressor, HistGradie
 from sklearn.inspection import permutation_importance
 from nltk.stem.snowball import SnowballStemmer
 
-
-# from nltk.corpus import wordnet
+import re
+from spacy_wordnet.wordnet_annotator import WordnetAnnotator 
+from nltk.corpus import wordnet
 import spacy
-# import contextualSpellCheck
 import time
 from spacy.tokenizer import Tokenizer
 import re
@@ -937,6 +937,31 @@ class Week6:
         # store the feature in 'filtered_attr.csv'
         pd.DataFrame({"id": df_filtered_data['id'], "product_uid": df_filtered_data['product_uid'], "query_root_in_attr": df_filtered_data['query_root_in_attr'],"query_compound_in_attr":df_filtered_data['query_compound_in_attr'],"query_other_in_attr":df_filtered_data['query_other_in_attr']}).to_csv('filtered_attr.csv', index=False)
 
+
+    def generateSimilarityTitleDesc(self):
+        df_train = pd.read_csv(
+            './data/train.csv', encoding="ISO-8859-1")
+        df_pro_desc = pd.read_csv('./data/product_descriptions.csv', encoding="ISO-8859-1")
+        nlp = spacy.load("en_core_web_lg")
+        # nltk.download('wordnet') < needed if not installed yet (pip)
+        nlp.tokenizer = Tokenizer(nlp.vocab, token_match=re.compile(r'\S+').match)
+        nlp.add_pipe("spacy_wordnet", after='tagger')
+
+        def calcSimilarity(id,sentence1,sentence2,nlp):
+            doc1 = nlp(sentence1.lower())
+            doc2 = nlp(sentence2.lower())
+            print(id)
+            return doc1.similarity(doc2)
+
+        df_train = pd.merge(df_train, df_pro_desc, how='left', on='product_uid')
+
+        df_train['query_title_similarity'] = df_train.apply(lambda row: calcSimilarity(row['id'],row['search_term'],row['product_title'],nlp), axis=1)
+        df_train['query_desc_similarity'] = df_train.apply(lambda row: calcSimilarity(row['id'],row['search_term'],row['product_description'],nlp), axis=1)
+
+        pd.DataFrame({"id": df_train['id'],"query_title_similarity":df_train['query_title_similarity'],"query_desc_similarity":df_train['query_desc_similarity']}).to_csv('filtered_title_desc_similarity.csv', index=False)
+
+
+
     def generateMeasurementfeatures(self):
         """
         The follow features are generated:
@@ -1350,5 +1375,5 @@ class scanData:
 
         
 
-scanData().analyzingFeatures()
+Week6().generateSimilarityTitleDesc()
 # scanData().analyseMissingQueryTerms()
