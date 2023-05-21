@@ -839,7 +839,7 @@ class Week6:
     
     
 
-Week6().generate_attribute_query_match()
+# Week6().generate_attribute_query_match()
 
 # Week6().execute_model3()
 # Week6().execute_model2()
