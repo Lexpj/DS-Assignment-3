@@ -9,3 +9,21 @@
 -----------
 part 2: implement synonyms and simularity
 
+
+WITHOUT EXTRA FEATURES, JUST BASE FEATURES
+Neural network
+0.5544448205171051
+Took 571.4054364999756 seconds!
+
+HistGradientBoostingRegressor
+{'l2_regularization': 1.0, 'learning_rate': 0.1, 'max_bins': 12, 'max_depth': 10, 'min_samples_leaf': 10}
+-0.23489487262135972
+0.4829355396761872
+Took 249.74080679996405 seconds!
+
+RandomForestClassifier
+{'bootstrap': True, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 5, 'n_estimators': 200}
+-0.2341713397762298
+0.4854202194718501
+Took 4322.810001799953 seconds!
+

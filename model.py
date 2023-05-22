@@ -93,8 +93,7 @@ class ML:
     def __makeMergedDataset(self):
         df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
         df_brand['brand_match'] = ((df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )).astype(int)
-        df_features = pd.read_csv(
-            './filtered_data/filtered_train.csv', encoding="ISO-8859-1")
+
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")
         
@@ -102,20 +101,20 @@ class ML:
             './filtered_data/filtered_train_title.csv', encoding="ISO-8859-1")
         df_features_desc = pd.read_csv(
             './filtered_data/filtered_train_desc.csv', encoding="ISO-8859-1")
-        df_attr = pd.read_csv(
-            './filtered_data/filtered_attr.csv',encoding="ISO-8859-1")
+
 
         merged = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
         merged = pd.merge(merged, df_features_title, how='left', on=['id', 'product_uid'])
         merged = pd.merge(merged, df_features_desc, how='left', on=['id', 'product_uid'])
-        merged = pd.merge(merged, df_features, how='left', on=['id', 'product_uid'])
-        merged = pd.merge(merged, df_attr, how='left', on=['id', 'product_uid'])
+
 
         merged = merged.fillna(0)
         relevanceScore = merged['relevance'].values
-        
+        merged['total_query_root'] = merged['total_query_root_y']
+        merged['total_query_compound'] = merged['total_query_compound_y']
+        merged['total_query_other'] = merged['total_query_other_y']
+
         merged = merged.drop([
-            'missing_query_terms',
             'relevance',
             'product_title',
             'search_term',
@@ -124,7 +123,13 @@ class ML:
             'missing_query_terms_x',
             'missing_query_terms_y',
             'brand_length_in_query',
-            'brand_name_size'
+            'brand_name_size',
+            'total_query_compound_x',
+            'total_query_root_x',
+            'total_query_other_x',
+            'total_query_compound_y',
+            'total_query_root_y',
+            'total_query_other_y'
         ], axis=1)
 
         print(merged.columns)
@@ -359,7 +364,7 @@ class ML:
 
         if oneHot:
             y_train = np.array(list(map(mapToOnehot, y_train)))
-        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
+        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error',verbose=1)
 
         #grid_search = RandomizedSearchCV(HistGradientBoostingRegressor(), param_grid, cv=10)
         grid_search.fit(X_train, y_train)
@@ -458,8 +463,7 @@ class Model:
     def __makeMergedDataset(self):
         df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
         df_brand['brand_match'] = ((df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )).astype(int)
-        df_features = pd.read_csv(
-            './filtered_data/filtered_train.csv', encoding="ISO-8859-1")
+
         df_train = pd.read_csv(
             './data/train.csv', encoding="ISO-8859-1")
         
@@ -467,20 +471,17 @@ class Model:
             './filtered_data/filtered_train_title.csv', encoding="ISO-8859-1")
         df_features_desc = pd.read_csv(
             './filtered_data/filtered_train_desc.csv', encoding="ISO-8859-1")
-        df_attr = pd.read_csv(
-            './filtered_data/filtered_attr.csv',encoding="ISO-8859-1")
+
 
         merged = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
         merged = pd.merge(merged, df_features_title, how='left', on=['id', 'product_uid'])
         merged = pd.merge(merged, df_features_desc, how='left', on=['id', 'product_uid'])
-        merged = pd.merge(merged, df_features, how='left', on=['id', 'product_uid'])
-        merged = pd.merge(merged, df_attr, how='left', on=['id', 'product_uid'])
+
 
         merged = merged.fillna(0)
         relevanceScore = merged['relevance'].values
         
         merged = merged.drop([
-            'missing_query_terms',
             'relevance',
             'product_title',
             'search_term',
@@ -489,7 +490,10 @@ class Model:
             'missing_query_terms_x',
             'missing_query_terms_y',
             'brand_length_in_query',
-            'brand_name_size'
+            'brand_name_size',
+            'total_query_compound_x',
+            'total_query_root_x',
+            'total_query_other_x'
         ], axis=1)
 
         print(merged.columns)
@@ -603,13 +607,13 @@ x = ML()
 # x.eval_importances(RandomForestRegressor(
 #     **{'bootstrap': True, 'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
 # ))
-x.neuralnet_regressor()
-x.randomforest_regressor()
+# x.neuralnet_regressor()
+# x.randomforest_regressor()
 x.gradientbooster_regressor()
-x.histgradientbooster_regressor()
+# x.histgradientbooster_regressor()
 x.randomforest_classifier()
 
 modelclass = Model()
-model = modelclass.gradientbooster_regressor()
+model = modelclass.randomforest_regressor()
 s = Shapper(model, modelclass.nr_features)
 s(*modelclass.shap_data())
