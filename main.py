@@ -1122,8 +1122,11 @@ class scanData:
         """
 
 
-Features().generate_title_query_match()
+
+Features().generate_brand_matching_feature()
 
 Features().generate_title_query_match()
 
 Features().generate_desc_query_match()
+
+Features().generateSimilarityTitleDesc()
