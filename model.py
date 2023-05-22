@@ -18,7 +18,6 @@ import sys
 
 np.set_printoptions(threshold=sys.maxsize)
 import shap
-import xgboost
 
 # from nltk.corpus import wordnet
 # import contextualSpellCheck
@@ -161,7 +160,7 @@ class ML:
         shapper = Shapper(model, 13)
         shapper(X_test, X_test, y_test)
     
-    def eval_importances(self,model):
+    def eval_importances(self,models):
         l = [1.0, 1.25, 1.33, 1.5, 1.67, 1.75, 2.0, 2.25, 2.33, 2.5, 2.67, 2.75, 3.0]
         def mapToOnehot(y):
             item = np.zeros(len(l))
@@ -169,19 +168,19 @@ class ML:
             return np.array(item)
         def mapToValue(y):
             return l[np.argmax(np.array(y))]
+        
         X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
 
         if type(model) == RandomForestClassifier:
             y_train = np.array(list(map(mapToOnehot, y_train)))
             y_test = np.array(list(map(mapToOnehot, y_test)))
 
-        importance = permutation_importance(model, np.concatenate((X_train,X_test),axis=0), np.concatenate((y_train,y_test),axis=0), n_repeats=1, random_state=0)
+        importance = permutation_importance(model, np.concatenate((X_train,X_test),axis=0), np.concatenate((y_train,y_test),axis=0), n_repeats=5, random_state=0)
         print("feature importances",importance)
 
         df = self.X
         df = df.drop(['id', 'product_uid'], axis=1)
 
-        plt.bar(df.columns,importance['importances_mean'],yerr=importance['importances_std'])
         plt.xticks(rotation='vertical')
         plt.show()
 
@@ -641,8 +640,11 @@ class Model:
 
         return model
     
-    def shap_data(self):
-        X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
+    def shap_data(self,similarity=False):
+        if similarity:
+            X_train, X_test, y_train, y_test = self.__get_train_test_split(self.Xsim,self.ysim) 
+        else:
+            X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
         return X_train, X_test, y_test
 
 class Shapper:
@@ -680,7 +682,7 @@ def plot_importances(models):
 
 
 
-x = ML(similarity=True)
+x = ML(similarity=False)
 # x.eval_model(RandomForestRegressor(
 #     **{'bootstrap': True, 'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
 # ))
@@ -695,12 +697,16 @@ x = ML(similarity=True)
 
 modelclass = Model()
 
-cur = modelclass.randomforest_classifier_sim()
+models = [
+    modelclass.gradientbooster_regressor(),
+    modelclass.histgradientbooster_regressor,
+    modelclass.randomforest_classifier(),
+    modelclass.randomforest_regressor()
+]
 print("gotmodel")
-x.eval_importances(cur)
 
+for model in models:
+    x.eval_importances(model)
 
-
-model = modelclass.randomforest_regressor()
-s = Shapper(model, modelclass.nr_features)
-s(*modelclass.shap_data())
+    s = Shapper(model, modelclass.nr_features)
+    s(*modelclass.shap_data(similarity=False))
