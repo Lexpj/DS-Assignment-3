@@ -960,24 +960,6 @@ class Week6:
 
         pd.DataFrame({"id": df_train['id'],"query_title_similarity":df_train['query_title_similarity'],"query_desc_similarity":df_train['query_desc_similarity']}).to_csv('filtered_title_desc_similarity.csv', index=False)
 
-
-
-    def generateMeasurementfeatures(self):
-        """
-        The follow features are generated:
-        1. count query words that match with the attribute values of the product.
-        --- count number of root in query
-        --- count number of compounds in query
-        """
-        df_filtered_data = pd.read_csv('./filtered_train.csv')
-        df_filtered_data = df_filtered_data[['product_uid','id']]
-        df_train = pd.read_csv(
-            './data/train.csv', encoding="ISO-8859-1")
-        df_att = pd.read_csv('./data/attributes.csv') 
-
-        # 1) find measurements in query
-
-        # 2) if a measurement is found, check if it exists in attributes.
         
 
     def execute_model(self):
