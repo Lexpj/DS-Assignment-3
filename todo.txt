@@ -21,9 +21,45 @@ HistGradientBoostingRegressor
 0.4829355396761872
 Took 249.74080679996405 seconds!
 
-RandomForestClassifier
+RandomForestRegressor
 {'bootstrap': True, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 5, 'n_estimators': 200}
 -0.2341713397762298
 0.4854202194718501
 Took 4322.810001799953 seconds!
 
+GradientBoostingRegressor
+{'learning_rate': 0.01, 'max_depth': 10, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 300}
+-0.23435692617763268
+0.4845212224693227
+Took 5878.763672800036 seconds!
+
+RandomForestClassifier
+{'max_depth': None, 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
+-0.07556384153329132
+1.384934528380542
+Took 5371.523099199985 seconds!
+
+WITH EXTRA SIMILARITY FEATURES AND OWN FEATURES
+Neural network:
+0.5823836161733958
+Took 658.8095155999763
+
+HistGradientBoostingRegressor
+{'l2_regularization': 0.0, 'learning_rate': 0.1, 'max_bins': 14, 'max_depth': 10, 'min_samples_leaf': 5}
+0.4831089925926161
+Took 152.51021550002042 seconds!
+
+GradientBoostingRegressor
+{'learning_rate': 0.01, 'max_depth': 10, 'max_features': 'log2', 'min_samples_leaf': 2, 'min_samples_split': 5, 'n_estimators': 300}
+-0.23272777586827403
+0.4801129492084381
+Took 1320.054567599902 seconds!
+
+RandomForestClassifier
+{'max_depth': None, 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 300}
+
+RandomForestRegressor
+{'bootstrap': True, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 5, 'n_estimators': 300}
+-0.23269284052754752
+0.4809366725831058
+Took 14501.970840999973 seconds!

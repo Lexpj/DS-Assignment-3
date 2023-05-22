@@ -35,8 +35,8 @@ def timeit(func):
 
 class ML:
 
-    def __init__(self):
-        data = self.__makeMergedDataset()
+    def __init__(self,similarity=False):
+        data = self.__makeMergedDataset(similarity=similarity)
         self.X = data[0]
         self.y = data[1]
 
@@ -90,7 +90,7 @@ class ML:
 
         return df_filtered_data, relevanceScore
 
-    def __makeMergedDataset(self):
+    def __makeMergedDataset(self,similarity):
         df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
         df_brand['brand_match'] = ((df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )).astype(int)
 
@@ -107,6 +107,9 @@ class ML:
         merged = pd.merge(merged, df_features_title, how='left', on=['id', 'product_uid'])
         merged = pd.merge(merged, df_features_desc, how='left', on=['id', 'product_uid'])
 
+        if similarity:
+            df_sim = pd.read_csv('./filtered_data/filtered_title_desc_similarity.csv', encoding="ISO-8859-1")
+            merged = pd.merge(merged, df_sim, how='left', on=['id'])
 
         merged = merged.fillna(0)
         relevanceScore = merged['relevance'].values
@@ -159,10 +162,20 @@ class ML:
         shapper(X_test, X_test, y_test)
     
     def eval_importances(self,model):
+        l = [1.0, 1.25, 1.33, 1.5, 1.67, 1.75, 2.0, 2.25, 2.33, 2.5, 2.67, 2.75, 3.0]
+        def mapToOnehot(y):
+            item = np.zeros(len(l))
+            item[l.index(y)] = 1
+            return np.array(item)
+        def mapToValue(y):
+            return l[np.argmax(np.array(y))]
         X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
-        model.fit(X_train, y_train)
 
-        importance = permutation_importance(model, np.concatenate((X_train,X_test),axis=0), np.concatenate((y_train,y_test),axis=0), n_repeats=25, random_state=0)
+        if type(model) == RandomForestClassifier:
+            y_train = np.array(list(map(mapToOnehot, y_train)))
+            y_test = np.array(list(map(mapToOnehot, y_test)))
+
+        importance = permutation_importance(model, np.concatenate((X_train,X_test),axis=0), np.concatenate((y_train,y_test),axis=0), n_repeats=1, random_state=0)
         print("feature importances",importance)
 
         df = self.X
@@ -223,12 +236,12 @@ class ML:
         # y_train = np.array(list(map(mapToOneHot,y_train)))
             
         param_grid = {
-            'n_estimators': [100,200,300],
+            'n_estimators': [300],#[100,200,300],
             'max_depth': [3, 5, 10],
-            'learning_rate': [0.01,0.1,1],
+            'learning_rate': [0.01],#,0.1,1],
             'min_samples_split': [2,5,10],
             'min_samples_leaf': [1,2,4],
-            'max_features': ['sqrt','log2'],
+            'max_features': ['log2']#['sqrt','log2'],
         }
 
 
@@ -364,7 +377,7 @@ class ML:
 
         if oneHot:
             y_train = np.array(list(map(mapToOnehot, y_train)))
-        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error',verbose=1)
+        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error',verbose=2)
 
         #grid_search = RandomizedSearchCV(HistGradientBoostingRegressor(), param_grid, cv=10)
         grid_search.fit(X_train, y_train)
@@ -374,7 +387,7 @@ class ML:
         print(grid_search.best_score_)
 
         with open("results.txt","a+") as f:
-            f.write(str(type(model)) + " " + str(grid_search.best_params_))
+            f.write(str(type(model)) + " " + str(grid_search.best_params_) + "\n")
 
         return grid_search.best_params_
 
@@ -409,54 +422,59 @@ class Model:
         data = self.__makeMergedDataset()
         self.X = data[0]
         self.y = data[1]
+        datasim = self.__makeMergedDatasetSim()
+        self.Xsim = datasim[0]
+        self.ysim = datasim[1]
 
-    def __makeMergedDataset(self):
-        df_filtered_data = pd.read_csv('./filtered_data/filtered_train.csv',encoding="ISO-8859-1")
-        df_filtered_attr = pd.read_csv('./filtered_data/filtered_attr.csv',encoding="ISO-8859-1")
-        df_data = pd.read_csv('./data/train.csv',encoding="ISO-8859-1")
-        df_brand_names = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1")
-        df_filtered_default = pd.read_csv('./filtered_data/filtered_default.csv',encoding="ISO-8859-1")
+    def __makeMergedDatasetSim(self):
+        df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
+        df_brand['brand_match'] = ((df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )).astype(int)
 
-        # df_filtered_data['word_in_title'] = df_filtered_default['word_in_title']
-        # df_filtered_data['word_in_description'] = df_filtered_default['word_in_description']
-        # df_filtered_data['len_of_query'] = df_filtered_default['len_of_query']
+        df_train = pd.read_csv(
+            './data/train.csv', encoding="ISO-8859-1")
         
-        # df_filtered_data['query_root_in_attr'] = df_filtered_attr['query_root_in_attr']
-        # df_filtered_data['query_compound_in_attr'] = df_filtered_attr['query_compound_in_attr']
-        # df_filtered_data['query_other_in_attr'] = df_filtered_attr['query_other_in_attr']
+        df_features_title = pd.read_csv(
+            './filtered_data/filtered_train_title.csv', encoding="ISO-8859-1")
+        df_features_desc = pd.read_csv(
+            './filtered_data/filtered_train_desc.csv', encoding="ISO-8859-1")
 
-        # df_filtered_data['brand_length_in_query'] = df_brand_names['brand_length_in_query']
-        # df_filtered_data['brand_name_size'] = df_brand_names['brand_name_size']
 
-        df_filtered_data['brand_match'] = (df_brand_names['brand_length_in_query'] == df_brand_names['brand_name_size']).astype(int)
+        merged = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
+        merged = pd.merge(merged, df_features_title, how='left', on=['id', 'product_uid'])
+        merged = pd.merge(merged, df_features_desc, how='left', on=['id', 'product_uid'])
 
-        relevanceScore = pd.merge(df_filtered_data,df_data, how='left', on='id')
-        relevanceScore = relevanceScore['relevance'].values
+        df_sim = pd.read_csv('./filtered_data/filtered_title_desc_similarity.csv', encoding="ISO-8859-1")
+        merged = pd.merge(merged, df_sim, how='left', on=['id'])
 
-        # df_filtered_data = df_filtered_data.drop(['len_of_query'], axis=1)
-        # df_all = pd.merge(df_all, df_pro_desc, how='left', on='product_uid')
-        # df_filtered_data = df_filtered_data.drop([ 
-        #                                         'query_compound_in_desc',
-        #                                         'query_other_in_desc',
-        #                                         'total_query_root',
-        #                                         'total_query_compound',
-        #                                         'total_query_other',
-        #                                         'query_root_also_root_in_title',
-        #                                         'query_compound_also_compound_in_title',
-        #                                         'query_root_in_attr',
-        #                                         'query_compound_in_attr',
-        #                                         'query_other_in_attr',
-        #                                         'brand_in_query'
-        #                                         ], axis=1) # For time purposes, dropping irrelevant columns barely differs error, but differs significantly in time
-        
-        df_filtered_data = df_filtered_data.fillna(0)
+        merged = merged.fillna(0)
+        relevanceScore = merged['relevance'].values
+        merged['total_query_root'] = merged['total_query_root_y']
+        merged['total_query_compound'] = merged['total_query_compound_y']
+        merged['total_query_other'] = merged['total_query_other_y']
 
-        
-        df_filtered_data = df_filtered_data.drop([
-            'missing_query_terms'
+        merged = merged.drop([
+            'relevance',
+            'product_title',
+            'search_term',
+            'brand_name_query',
+            'brand_name_in_attr',
+            'missing_query_terms_x',
+            'missing_query_terms_y',
+            'brand_length_in_query',
+            'brand_name_size',
+            'total_query_compound_x',
+            'total_query_root_x',
+            'total_query_other_x',
+            'total_query_compound_y',
+            'total_query_root_y',
+            'total_query_other_y'
         ], axis=1)
 
-        print(df_filtered_data.columns)
+        print(merged.columns)
+        merged.to_csv("./filtered_data/test.csv")
+        self.nr_features = len(merged.columns)-2
+
+        return merged, relevanceScore
 
         return df_filtered_data, relevanceScore
 
@@ -513,7 +531,7 @@ class Model:
     def randomforest_regressor(self):
         X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
 
-        hyperparameters = {'bootstrap': True, 'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
+        hyperparameters = {'bootstrap': True, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 5, 'n_estimators': 200}
 
         model = RandomForestRegressor(**hyperparameters)
         model.fit(X_train, y_train)
@@ -522,7 +540,7 @@ class Model:
     def gradientbooster_regressor(self):
         X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
 
-        hyperparameters = {'learning_rate': 0.1, 'max_depth': 5, 'max_features': 'log2', 'min_samples_leaf': 2, 'min_samples_split': 10, 'n_estimators': 300}
+        hyperparameters = {'learning_rate': 0.01, 'max_depth': 10, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 300}
         
         model = GradientBoostingRegressor(**hyperparameters)
         model.fit(X_train, y_train)
@@ -531,7 +549,7 @@ class Model:
     def histgradientbooster_regressor(self):
         X_train, X_test, y_train, y_test = self.__get_train_test_split(self.X,self.y) 
 
-        hyperparameters = {'l2_regularization': 0.0, 'learning_rate': 0.1, 'max_bins': 13, 'max_depth': 10, 'min_samples_leaf': 10}
+        hyperparameters = {'l2_regularization': 1.0, 'learning_rate': 0.1, 'max_bins': 12, 'max_depth': 10, 'min_samples_leaf': 10}
 
         model = HistGradientBoostingRegressor(**hyperparameters)
         model.fit(X_train, y_train)
@@ -555,7 +573,65 @@ class Model:
 
         y_train = np.array(list(map(mapToOnehot, y_train)))
 
-        hyperparameters = {'max_depth': 10, 'min_samples_leaf': 1, 'min_samples_split': 10, 'n_estimators': 200}
+        hyperparameters = {'max_depth': None, 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
+
+        # Optimal hyperparameters are 
+        # 
+        
+        model = RandomForestClassifier(**hyperparameters)
+        model.fit(X_train, y_train)
+
+        return model
+    
+    def randomforest_regressor_sim(self):
+        X_train, X_test, y_train, y_test = self.__get_train_test_split(self.Xsim,self.ysim) 
+
+        hyperparameters = {'bootstrap': True, 'max_depth': None, 'max_features': 'log2', 'min_samples_leaf': 4, 'min_samples_split': 5, 'n_estimators': 300}
+
+        model = RandomForestRegressor(**hyperparameters)
+        model.fit(X_train, y_train)
+        return model
+    
+    def gradientbooster_regressor_sim(self):
+        X_train, X_test, y_train, y_test = self.__get_train_test_split(self.Xsim,self.ysim) 
+
+        hyperparameters = {'learning_rate': 0.01, 'max_depth': 10, 'max_features': 'log2', 'min_samples_leaf': 2, 'min_samples_split': 5, 'n_estimators': 300}
+
+        
+        model = GradientBoostingRegressor(**hyperparameters)
+        model.fit(X_train, y_train)
+        return model
+
+    def histgradientbooster_regressor_sim(self):
+        X_train, X_test, y_train, y_test = self.__get_train_test_split(self.Xsim,self.ysim) 
+
+        hyperparameters = {'l2_regularization': 0.0, 'learning_rate': 0.1, 'max_bins': 14, 'max_depth': 10, 'min_samples_leaf': 5}
+
+
+        model = HistGradientBoostingRegressor(**hyperparameters)
+        model.fit(X_train, y_train)
+
+        return model
+
+    def neuralnet_regressor_sim(self):
+        model = load_model("./neuralmodel")
+        return model
+
+    def randomforest_classifier_sim(self):
+        l = [1.0, 1.25, 1.33, 1.5, 1.67, 1.75, 2.0, 2.25, 2.33, 2.5, 2.67, 2.75, 3.0]
+        def mapToOnehot(y):
+            item = np.zeros(len(l))
+            item[l.index(y)] = 1
+            return np.array(item)
+        def mapToValue(y):
+            return l[np.argmax(np.array(y))]
+
+        X_train, X_test, y_train, y_test = self.__get_train_test_split(self.Xsim,self.ysim) 
+
+        y_train = np.array(list(map(mapToOnehot, y_train)))
+
+        hyperparameters = {'max_depth': None, 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 300}
+
 
         # Optimal hyperparameters are 
         # 
@@ -593,6 +669,10 @@ class Shapper:
         self.show(*args)
 
 
+def plot_importances(models):
+    pass
+
+
 # weight sharing between states. slide 21
 # slide 25: group states, estimate one value for each group/buckets
 # slide 26: linear methods: define feature vector with basic functions, and the value for a state is the inproduct of a combinatino of w,s
@@ -600,7 +680,7 @@ class Shapper:
 
 
 
-x = ML()
+x = ML(similarity=True)
 # x.eval_model(RandomForestRegressor(
 #     **{'bootstrap': True, 'max_depth': None, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 300}
 # ))
@@ -609,11 +689,18 @@ x = ML()
 # ))
 # x.neuralnet_regressor()
 # x.randomforest_regressor()
-x.gradientbooster_regressor()
+# x.gradientbooster_regressor()
 # x.histgradientbooster_regressor()
-x.randomforest_classifier()
+# x.randomforest_classifier()
 
 modelclass = Model()
+
+cur = modelclass.randomforest_classifier_sim()
+print("gotmodel")
+x.eval_importances(cur)
+
+
+
 model = modelclass.randomforest_regressor()
 s = Shapper(model, modelclass.nr_features)
 s(*modelclass.shap_data())
