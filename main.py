@@ -1249,58 +1249,6 @@ class scanData:
     def __init__(self):
         pass
 
-    def analyseMissingQueryTerms(self):
-        df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
-        df_brand = df_brand[(df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )]
-        df_features = pd.read_csv(
-            './filtered_data/filtered_train.csv', encoding="ISO-8859-1")
-        df_train = pd.read_csv(
-            './data/train.csv', encoding="ISO-8859-1")
-        
-        merged_brand = pd.merge(df_train, df_brand, how='left', on=['id', 'product_uid'])
-        merged = pd.merge(df_train, df_features, how='left', on=['id', 'product_uid'])
-        # print(merged['relevance'])
-
-
-        # --- brand matching feature
-        merged_brand = merged_brand.fillna(0)
-        match_brand_df = merged_brand[merged_brand['brand_name_size'] > 0] # mean 2.487238 , std 0.472758
-        no_match_brand_df = merged_brand[merged_brand['brand_name_size'] == 0] # mean 2.370361, std 0.538892
-        print(match_brand_df['relevance'].describe())
-        print(no_match_brand_df['relevance'].describe())
-
-        # --- title / desc matching features
-        query_root_found_in_title = merged[merged['query_root_in_title'] == 1] # mean 2.488126, std 0.485548
-        query_root_not_found_in_title = merged[merged['query_root_in_title'] == 0] # mean 2.211391, std 0.563021
-        # print(query_root_found_in_title['relevance'].describe())
-        # print(query_root_not_found_in_title['relevance'].describe())
-
-
-        root_match_df = merged[merged['query_root_also_root_in_title'] == 1] # mean is 2.568666, std 0.446398
-        no_root_match_df = merged[merged['query_root_also_root_in_title'] == 0] # mean is 2.334458, std 0.543831
-        # print(root_match_df['relevance'].describe()) 
-        # print(no_root_match_df['relevance'].describe()) 
-
-        query_root_found_in_desc = merged[merged['query_root_in_desc'] == 1] # mean 2.331774, std 0.539132
-        query_root_not_found_in_desc = merged[merged['query_root_in_desc'] == 0] # mean 2.385813, std 0.533342
-        # print(query_root_found_in_desc['relevance'].describe())
-        # print(query_root_not_found_in_desc['relevance'].describe())
-
-        query_compound_in_title = merged[merged['query_compound_in_title'] == 1] # mean 2.428634, std 0.512457
-        query_compound_not_in_title = merged[merged['query_compound_in_title'] == 0] # mean 2.331830, std 0.553072
-        # print(query_compound_in_title['relevance'].describe())
-        # print(query_compound_not_in_title['relevance'].describe())
-
-        query_other_in_title = merged[merged['query_other_in_title'] == 1] # mean 2.399762, std 0.527170
-        query_other_not_in_title = merged[merged['query_other_in_title'] == 0] # mean 2.360412, std 0.542903
-        print(query_other_in_title['relevance'].describe())
-        print(query_other_not_in_title['relevance'].describe())
-
-        exit()
-
-        print(no_missing_and_root_match_df[no_missing_and_root_match_df['relevance'] < 1.5].head(50))
-        # print(no_missing_df.loc['relevance','id'])
-
     def analyzingFeatures(self):
         df_brand = pd.read_csv('./filtered_data/filtered_brand_name.csv',encoding="ISO-8859-1").fillna("")
         df_brand = df_brand[(df_brand['brand_length_in_query'] == df_brand['brand_name_size']) & (df_brand['brand_name_size'] > 0 )]
